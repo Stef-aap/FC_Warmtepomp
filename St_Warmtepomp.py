@@ -450,24 +450,28 @@ class EnergieModel:
       chart_img_bytes = fig_pdf.to_image(format="png", width=600, height=350, scale=2)
       """
 
-      # 2. Matplotlib Grafiek Genereren voor de PDF (Geen Chrome nodig, werkt direct in de cloud!)
+      # 2. Matplotlib Grafiek Genereren voor de PDF (Veilig voor alle Pandas versies)
       try:
           import matplotlib.pyplot as plt
           
-          # Haal de data op en transformeer deze naar een indeling die geschikt is voor een staafdiagram
-          df_pivot = self.df_grafiek_laatste.pivot(index='Installatie', columns='Type Kosten', values='Bedrag (€)').fillna(0)
+          # Veilige transformatie: groeperen en uitvouwen (unstack)
+          df_pivot = self.df_grafiek_laatste.groupby(['Installatie', 'Type Kosten'])['Bedrag (€)'].sum().unstack().fillna(0)
+          
+          # Zorg dat de kolommen in de juiste volgorde staan (voorkomt kleur-crashes)
+          gewenste_kolommen = [col for col in ["Aanschaf", "Vaste Kosten", "Verbruik"] if col in df_pivot.columns]
+          df_pivot = df_pivot[gewenste_kolommen]
           
           # Exact dezelfde kleurenmatchen met je originele Plotly schermgrafiek
           color_map = {"Aanschaf": "#94a3b8", "Vaste Kosten": "#38bdf8", "Verbruik": "#f43f5e"}
           colors_list = [color_map.get(col, "#000000") for col in df_pivot.columns]
           
-          # Figuur aanmaken met dezelfde verhoudingen (width=600, height=350, schaalstijl via dpi)
+          # Figuur aanmaken
           fig, ax = plt.subplots(figsize=(6, 3.5), dpi=200)
           
-          # Teken het staafdiagram (naast elkaar, net als px.bar)
-          df_pivot.plot(kind='bar', stacked=False, ax=ax, color=colors_list, width=0.8)
+          # TEKEN DE GESTAPELDE GRAFIEK
+          df_pivot.plot(kind='bar', stacked=True, ax=ax, color=colors_list, width=0.6)
           
-          # Styling toepassen voor een strakke, moderne look (aslijnen verbergen, grids aanzetten)
+          # Strakke styling (aslijnen verbergen, grids aanzetten)
           ax.spines['top'].set_visible(False)
           ax.spines['right'].set_visible(False)
           ax.spines['left'].set_visible(False)
@@ -476,19 +480,22 @@ class EnergieModel:
           ax.set_axisbelow(True)
           ax.set_xlabel("")
           ax.set_ylabel("")
-          plt.xticks(rotation=0) # Zorg dat installatienamen rechtstaan
+          plt.xticks(rotation=0) 
           
           # Legenda netjes horizontaal boven de grafiek plaatsen
           ax.legend(loc='lower right', bbox_to_anchor=(1.0, 1.02), ncol=3, frameon=False, fontsize=8)
           plt.tight_layout()
           
-          # Sla de afbeelding direct op in het interne geheugen (BytesIO) zonder de harde schijf te raken
+          # Sla op in het geheugen
           img_buf = io.BytesIO()
           plt.savefig(img_buf, format='png', bbox_inches='tight', transparent=True)
           img_buf.seek(0)
           chart_img_bytes = img_buf.read()
           plt.close(fig)
-      except Exception:
+      except Exception as e:
+          # Als er NU iets misgaat, printen we de fout in de Streamlit logs zodat we het zien
+          import streamlit as st
+          st.log.exception(e) if hasattr(st, 'log') else print(f"PDF Graph Error: {e}")
           chart_img_bytes = None
 
 
