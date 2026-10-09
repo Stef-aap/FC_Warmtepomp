@@ -451,7 +451,8 @@ class EnergieModel:
       """
 
       # 2. Matplotlib Grafiek Genereren voor de PDF (Veilig voor alle Pandas versies)
-      try:
+      #try:
+      if True :        
           import matplotlib.pyplot as plt
           
           # Veilige transformatie: groeperen en uitvouwen (unstack)
@@ -492,7 +493,9 @@ class EnergieModel:
           img_buf.seek(0)
           chart_img_bytes = img_buf.read()
           plt.close(fig)
-      except Exception as e:
+      #except Exception as e:
+      if False:
+          e= "PPP"
           # Als er NU iets misgaat, printen we de fout in de Streamlit logs zodat we het zien
           import streamlit as st
           st.log.exception(e) if hasattr(st, 'log') else print(f"PDF Graph Error: {e}")
