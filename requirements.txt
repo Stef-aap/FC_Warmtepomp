@@ -2,5 +2,5 @@ streamlit
 pandas
 plotly
 requests
-kaleido
 reportlab
+matplotlib
