@@ -414,13 +414,16 @@ class EnergieModel:
 
   # **************************************************************************
   # **************************************************************************
-  def export_to_pdf(self, pdf_verbruik, pdf_vast, pdf_wp):
+  # Voeg df_grafiek toe als expliciet argument
+  def export_to_pdf(self, pdf_verbruik, pdf_vast, pdf_wp, df_grafiek):
       import io
       from reportlab.lib.pagesizes import A4
       from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
       from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
       from reportlab.lib import colors
-      import plotly.express as px
+      from matplotlib.figure import Figure
+
+
 
       # 1. Globale variabelen/versie veiligstellen
       version = getattr(self, 'version', '1.0')
@@ -450,15 +453,13 @@ class EnergieModel:
       chart_img_bytes = fig_pdf.to_image(format="png", width=600, height=350, scale=2)
       """
 
-      # 2. Matplotlib Grafiek Genereren voor de PDF (Veilig voor alle Pandas versies)
-      #try:
-      if True :        
-          import matplotlib.pyplot as plt
+
+      # 2. Matplotlib Grafiek Genereren voor de PDF (Thread-safe & Async-proof)
+      try:
+          # GEBRUIK NU HIER DE MEEGEGEVEN df_grafiek VARIABELE:
+          df_pivot = df_grafiek.groupby(['Installatie', 'Type Kosten'])['Bedrag (€)'].sum().unstack().fillna(0)
           
-          # Veilige transformatie: groeperen en uitvouwen (unstack)
-          df_pivot = self.df_grafiek_laatste.groupby(['Installatie', 'Type Kosten'])['Bedrag (€)'].sum().unstack().fillna(0)
-          
-          # Zorg dat de kolommen in de juiste volgorde staan (voorkomt kleur-crashes)
+          # Zorg dat de kolommen in de juiste volgorde staan
           gewenste_kolommen = [col for col in ["Aanschaf", "Vaste Kosten", "Verbruik"] if col in df_pivot.columns]
           df_pivot = df_pivot[gewenste_kolommen]
           
@@ -466,8 +467,8 @@ class EnergieModel:
           color_map = {"Aanschaf": "#94a3b8", "Vaste Kosten": "#38bdf8", "Verbruik": "#f43f5e"}
           colors_list = [color_map.get(col, "#000000") for col in df_pivot.columns]
           
-          # Figuur aanmaken
-          fig, ax = plt.subplots(figsize=(6, 3.5), dpi=200)
+          fig = Figure(figsize=(6, 3.5), dpi=200)
+          ax = fig.subplots()
           
           # TEKEN DE GESTAPELDE GRAFIEK
           df_pivot.plot(kind='bar', stacked=True, ax=ax, color=colors_list, width=0.6)
@@ -481,25 +482,20 @@ class EnergieModel:
           ax.set_axisbelow(True)
           ax.set_xlabel("")
           ax.set_ylabel("")
-          plt.xticks(rotation=0) 
           
-          # Legenda netjes horizontaal boven de grafiek plaatsen
+          for tick in ax.get_xticklabels():
+              tick.set_rotation(0)
+          
           ax.legend(loc='lower right', bbox_to_anchor=(1.0, 1.02), ncol=3, frameon=False, fontsize=8)
-          plt.tight_layout()
           
-          # Sla op in het geheugen
           img_buf = io.BytesIO()
-          plt.savefig(img_buf, format='png', bbox_inches='tight', transparent=True)
+          fig.savefig(img_buf, format='png', bbox_inches='tight', transparent=True)
           img_buf.seek(0)
           chart_img_bytes = img_buf.read()
-          plt.close(fig)
-      #except Exception as e:
-      if False:
-          e= "PPP"
-          # Als er NU iets misgaat, printen we de fout in de Streamlit logs zodat we het zien
-          import streamlit as st
-          st.log.exception(e) if hasattr(st, 'log') else print(f"PDF Graph Error: {e}")
+          
+      except Exception as e:
           chart_img_bytes = None
+
 
 
 
@@ -720,13 +716,23 @@ def main():
 
     with col_json_0 :
       st.download_button ( 
-        label     = "📥 PDF Rapport"
-       ,data      = lambda: model.export_to_pdf(state_verbruik, state_vast, state_wp)
+        label     = "📥 PDF Rapport",
+        #data      = lambda: model.export_to_pdf(state_verbruik, state_vast, state_wp)
+        # Verander dit bij de st.download_button aanroep:
+        data = lambda: model.export_to_pdf(state_verbruik, 
+                                           state_vast, 
+                                           state_wp, 
+                                           model.df_grafiek_laatste )
+                                           #st.session_state.df_grafiek_laatste)
+        # (Of als de dataframe buiten session_state leeft, vul hier de variabele in die je voor het scherm gebruikt, bijv: self.df_grafiek_laatste)
        ,file_name = "Warmtepomp_Berekening_Rapport.pdf"
        ,mime      ="application/pdf"
        ,type      ="primary"
        ,width     = "stretch"
     )
+
+
+
 
     # --- JSON OPSLAAN & LADEN SECTIE ---
     #st.subheader("💾 Model Data Beheer")
