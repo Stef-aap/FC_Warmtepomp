@@ -439,6 +439,7 @@ class EnergieModel:
           chart_img_bytes = None
       """
 
+      """
       # Haal de try/except weg zodat we de echte fout in de Streamlit logs kunnen zien
       fig_pdf = px.bar(self.df_grafiek_laatste, x="Installatie", y="Bedrag (€)", color="Type Kosten", text_auto='.2s', height=400, color_discrete_map={"Aanschaf": "#94a3b8", "Vaste Kosten": "#38bdf8", "Verbruik": "#f43f5e"})
       fig_pdf.update_layout(legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1), margin=dict(l=40, r=10, t=10, b=30), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="#000000"))
@@ -447,7 +448,48 @@ class EnergieModel:
       
       # Forceer het converteren
       chart_img_bytes = fig_pdf.to_image(format="png", width=600, height=350, scale=2)
+      """
 
+      # 2. Matplotlib Grafiek Genereren voor de PDF (Geen Chrome nodig, werkt direct in de cloud!)
+      try:
+          import matplotlib.pyplot as plt
+          
+          # Haal de data op en transformeer deze naar een indeling die geschikt is voor een staafdiagram
+          df_pivot = self.df_grafiek_laatste.pivot(index='Installatie', columns='Type Kosten', values='Bedrag (€)').fillna(0)
+          
+          # Exact dezelfde kleurenmatchen met je originele Plotly schermgrafiek
+          color_map = {"Aanschaf": "#94a3b8", "Vaste Kosten": "#38bdf8", "Verbruik": "#f43f5e"}
+          colors_list = [color_map.get(col, "#000000") for col in df_pivot.columns]
+          
+          # Figuur aanmaken met dezelfde verhoudingen (width=600, height=350, schaalstijl via dpi)
+          fig, ax = plt.subplots(figsize=(6, 3.5), dpi=200)
+          
+          # Teken het staafdiagram (naast elkaar, net als px.bar)
+          df_pivot.plot(kind='bar', stacked=False, ax=ax, color=colors_list, width=0.8)
+          
+          # Styling toepassen voor een strakke, moderne look (aslijnen verbergen, grids aanzetten)
+          ax.spines['top'].set_visible(False)
+          ax.spines['right'].set_visible(False)
+          ax.spines['left'].set_visible(False)
+          ax.spines['bottom'].set_color('#e2e8f0')
+          ax.grid(axis='y', linestyle='-', linewidth=0.5, color='#e2e8f0')
+          ax.set_axisbelow(True)
+          ax.set_xlabel("")
+          ax.set_ylabel("")
+          plt.xticks(rotation=0) # Zorg dat installatienamen rechtstaan
+          
+          # Legenda netjes horizontaal boven de grafiek plaatsen
+          ax.legend(loc='lower right', bbox_to_anchor=(1.0, 1.02), ncol=3, frameon=False, fontsize=8)
+          plt.tight_layout()
+          
+          # Sla de afbeelding direct op in het interne geheugen (BytesIO) zonder de harde schijf te raken
+          img_buf = io.BytesIO()
+          plt.savefig(img_buf, format='png', bbox_inches='tight', transparent=True)
+          img_buf.seek(0)
+          chart_img_bytes = img_buf.read()
+          plt.close(fig)
+      except Exception:
+          chart_img_bytes = None
 
 
 
