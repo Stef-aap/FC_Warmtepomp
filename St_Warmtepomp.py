@@ -8,6 +8,7 @@ Version 0.9 - DEEL 1 - Fix voor printen, tabel-zichtbaarheid en balk-nulpunt
 """
 version = 1.1
 
+import os
 from   datetime          import datetime, timedelta
 import streamlit         as st
 import pandas            as pd
@@ -423,36 +424,8 @@ class EnergieModel:
       from reportlab.lib import colors
       from matplotlib.figure import Figure
 
-
-
       # 1. Globale variabelen/versie veiligstellen
-      version = getattr(self, 'version', '1.0')
-
-
-
-      """ Om Cloud probleem op te sporen
-      # 2. Plotly Grafiek Genereren
-      try:
-          fig_pdf = px.bar(self.df_grafiek_laatste, x="Installatie", y="Bedrag (€)", color="Type Kosten", text_auto='.2s', height=400, color_discrete_map={"Aanschaf": "#94a3b8", "Vaste Kosten": "#38bdf8", "Verbruik": "#f43f5e"})
-          fig_pdf.update_layout(legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1), margin=dict(l=40, r=10, t=10, b=30), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="#000000"))
-          fig_pdf.update_xaxes(title=None, showgrid=True, gridcolor="#e2e8f0", tickfont=dict(color="#000000"))
-          fig_pdf.update_yaxes(title=None, showgrid=True, gridcolor="#e2e8f0", tickfont=dict(color="#000000"))
-          chart_img_bytes = fig_pdf.to_image(format="png", width=600, height=350, scale=2)
-      except Exception:
-          chart_img_bytes = None
-      """
-
-      """
-      # Haal de try/except weg zodat we de echte fout in de Streamlit logs kunnen zien
-      fig_pdf = px.bar(self.df_grafiek_laatste, x="Installatie", y="Bedrag (€)", color="Type Kosten", text_auto='.2s', height=400, color_discrete_map={"Aanschaf": "#94a3b8", "Vaste Kosten": "#38bdf8", "Verbruik": "#f43f5e"})
-      fig_pdf.update_layout(legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1), margin=dict(l=40, r=10, t=10, b=30), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="#000000"))
-      fig_pdf.update_xaxes(title=None, showgrid=True, gridcolor="#e2e8f0", tickfont=dict(color="#000000"))
-      fig_pdf.update_yaxes(title=None, showgrid=True, gridcolor="#e2e8f0", tickfont=dict(color="#000000"))
-      
-      # Forceer het converteren
-      chart_img_bytes = fig_pdf.to_image(format="png", width=600, height=350, scale=2)
-      """
-
+      #version = getattr(self, 'version', '1.0')
 
       # 2. Matplotlib Grafiek Genereren voor de PDF (Thread-safe & Async-proof)
       try:
@@ -493,9 +466,9 @@ class EnergieModel:
           img_buf.seek(0)
           chart_img_bytes = img_buf.read()
           
-      except Exception as e:
+      #except Exception as e:
+      except :
           chart_img_bytes = None
-
 
 
 
@@ -515,10 +488,57 @@ class EnergieModel:
       table_body_style = ParagraphStyle('TableBody', parent=styles['Normal'], fontSize=9, leading=11, textColor=colors.HexColor("#1e293b"))
       table_body_center = ParagraphStyle('TableBodyCenter', parent=table_body_style, alignment=1) # 1 = gecentreerd
 
+      # NIEUW: Stijl voor het tekstblok over de volle breedte aan het einde
+      footer_block_style = ParagraphStyle(
+          'FooterBlock',
+          parent=styles['Normal'],
+          fontSize=9,
+          leading=13,
+          textColor=colors.HexColor("#1e293b"),
+          backColor=colors.HexColor("#f8fafc"),      # Lichtgrijze achtergrond
+          borderColor=colors.HexColor("#cbd5e1"),  # Dunne rand
+          borderWidth=0.5,
+          borderPadding=10,                          # Ruimte binnen het blok
+          spaceBefore=15,                            # Ruimte boven het blok
+          spaceAfter=10
+      )
+
+
+
+      # =========================================================================
+      # 1. LOGO & HEADER TOEVOEGEN
+      # =========================================================================
+      logo_pad = "logo.png" # Zorg dat dit logo in de root van je GitHub staat
+      
+      header_tekst = [
+          Paragraph(f"⚡ FC Warmtepomp Calculator (v{version})", title_style),
+          Paragraph(f"<b>EvaluatiePeriode:</b> {self.sl_jaren} jaar  |  <b>Gasprijs:</b> € {self.sl_gas_prijs:.2f}/m³  |  <b>Elektraprijs:</b> € {self.sl_elek_prijs:.2f}/kWh", normal_style)
+      ]
+
+      # Controleer of het logo bestaat (voorkomt crashes als het bestand ontbreekt)
+      if os.path.exists(logo_pad):
+          # Logo breedte 100pt, hoogte automatisch schalen (pas aan naar wens)
+          logo_img = Image(logo_pad, width=100, height=40) 
+          # Tabel met 2 kolommen: Titel (425pt) en Logo (120pt) = 545pt breed
+          header_tabel = Table([[header_tekst, logo_img]], colWidths=[425, 120])
+          header_tabel.setStyle(TableStyle([
+              ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+              ('ALIGN', (1, 0), (1, 0), 'RIGHT'), # Logo rechts uitlijnen
+          ]))
+          story.append(header_tabel)
+      else:
+          # Fallback als logo niet wordt gevonden
+          story.append(header_tekst[0])
+          story.append(header_tekst[1])
+
+
       # 5. Header toevoegen
-      story.append(Paragraph(f"⚡ FC Warmtepomp Calculator (v{version})", title_style))
-      story.append(Paragraph(f"<b>EvaluatiePeriode:</b> {self.sl_jaren} jaar  |  <b>Gasprijs:</b> € {self.sl_gas_prijs:.2f}/m³  |  <b>Elektraprijs:</b> € {self.sl_elek_prijs:.2f}/kWh", normal_style))
-      story.append(Spacer(1, 10))
+      #story.append(Paragraph(f"⚡ FC Warmtepomp Calculator (v{version})", title_style))
+      #story.append(Paragraph(f"<b>EvaluatiePeriode:</b> {self.sl_jaren} jaar  |  <b>Gasprijs:</b> € {self.sl_gas_prijs:.2f}/m³  |  <b>Elektraprijs:</b> € {self.sl_elek_prijs:.2f}/kWh", normal_style))
+      #story.append(Spacer(1, 10))
+
+      story.append(Spacer(1, 15))
+
 
       # Standaard tabelstijl voor een strakke look
       base_table_style = TableStyle([
@@ -551,35 +571,6 @@ class EnergieModel:
       
       left_flowables.append(Spacer(1, 15))
       
-
-      """
-      # 3. NIEUW: Sliders / Uitgangspunten Calculatie
-      left_flowables.append(Paragraph("🎛️ Geselecteerde Instellingen", section_style))
-      
-      # Voeg hier alle variabelen toe die aan uw Streamlit-sliders gekoppeld zijn
-      slider_data = [
-          ["Instelling", "Waarde"],
-          ["EvaluatiePeriode", f"{self.sl_jaren} jaar"],
-          ["Gasprijs", f"€ {self.sl_gas_prijs:.2f}/m³"],
-          ["Elektraprijs", f"€ {self.sl_elek_prijs:.2f}/kWh"],
-          # Voeg hier eventuele extra sliders toe, bijvoorbeeld:
-          # ["Budget", f"€ {self.sl_budget}"],
-      ]
-      
-      formatted_slider_data = []
-      for r_idx, row in enumerate(slider_data):
-          if r_idx == 0:
-              formatted_slider_data.append(row)
-          else:
-              formatted_slider_data.append([
-                  Paragraph(row[0], table_body_style), 
-                  Paragraph(row[1], table_body_style)
-              ])
-
-      t_sliders = Table(formatted_slider_data, colWidths=[130, 70])
-      t_sliders.setStyle(base_table_style)
-      left_flowables.append(t_sliders)
-      """
 
 
       # 2. Vaste Kosten
@@ -665,6 +656,27 @@ class EnergieModel:
       ]))
       
       story.append(master_table)
+      
+      
+      # =========================================================================
+      # 2. TEKSTBLOK OVER VOLLE BREEDTE AAN HET EINDE
+      # =========================================================================
+      story.append(Spacer(1, 10))
+      
+      conclusie_tekst = (
+          "<b>Disclaimer & Notitie:</b> Deze berekening is een schatting op basis van de door u "
+          "ingevoerde verbruiksgegevens en huidige energietarieven. Rendementen van warmtepompen (SCOP) "
+          "kunnen in de praktijk variëren afhankelijk van de isolatiewaarde van uw woning en het type "
+          "afgiftesysteem (bijv. vloerverwarming versus radiatoren). Er kunnen geen rechten aan deze "
+          "calculatie worden ontleend."
+      )
+      
+      # Omdat dit direct in de main story staat (buiten de kolommen), 
+      # neemt het automatisch de volledige breedte van 545pt in beslag.
+      story.append(Paragraph(conclusie_tekst, footer_block_style))
+
+
+      
       
       # Bouw PDF document
       doc.build(story)
