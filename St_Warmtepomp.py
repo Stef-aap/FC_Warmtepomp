@@ -465,7 +465,7 @@ class EnergieModel:
           fig, ax = plt.subplots(figsize=(6, 3.5), dpi=200)
           
           # Teken het staafdiagram (naast elkaar, net als px.bar)
-          df_pivot.plot(kind='bar', stacked=False, ax=ax, color=colors_list, width=0.8)
+          df_pivot.plot(kind='bar', stacked=True, ax=ax, color=colors_list, width=0.8)
           
           # Styling toepassen voor een strakke, moderne look (aslijnen verbergen, grids aanzetten)
           ax.spines['top'].set_visible(False)
