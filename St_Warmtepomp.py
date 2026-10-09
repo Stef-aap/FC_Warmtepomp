@@ -425,6 +425,9 @@ class EnergieModel:
       # 1. Globale variabelen/versie veiligstellen
       version = getattr(self, 'version', '1.0')
 
+
+
+      """ Om Cloud probleem op te sporen
       # 2. Plotly Grafiek Genereren
       try:
           fig_pdf = px.bar(self.df_grafiek_laatste, x="Installatie", y="Bedrag (€)", color="Type Kosten", text_auto='.2s', height=400, color_discrete_map={"Aanschaf": "#94a3b8", "Vaste Kosten": "#38bdf8", "Verbruik": "#f43f5e"})
@@ -434,6 +437,19 @@ class EnergieModel:
           chart_img_bytes = fig_pdf.to_image(format="png", width=600, height=350, scale=2)
       except Exception:
           chart_img_bytes = None
+      """
+
+      # Haal de try/except weg zodat we de echte fout in de Streamlit logs kunnen zien
+      fig_pdf = px.bar(self.df_grafiek_laatste, x="Installatie", y="Bedrag (€)", color="Type Kosten", text_auto='.2s', height=400, color_discrete_map={"Aanschaf": "#94a3b8", "Vaste Kosten": "#38bdf8", "Verbruik": "#f43f5e"})
+      fig_pdf.update_layout(legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1), margin=dict(l=40, r=10, t=10, b=30), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="#000000"))
+      fig_pdf.update_xaxes(title=None, showgrid=True, gridcolor="#e2e8f0", tickfont=dict(color="#000000"))
+      fig_pdf.update_yaxes(title=None, showgrid=True, gridcolor="#e2e8f0", tickfont=dict(color="#000000"))
+      
+      # Forceer het converteren
+      chart_img_bytes = fig_pdf.to_image(format="png", width=600, height=350, scale=2)
+
+
+
 
       # 3. Document Setup (A4 breedte = 595pt. Marges 25+25=50pt. Beschikbare breedte = 545pt)
       # Linkerkolom (200) + Tussenruimte (25) + Rechterkolom (320) = exact 545pt.
