@@ -2,5 +2,5 @@ streamlit
 pandas
 plotly
 requests
-kaleido==0.1.0.post1
+kaleido
 reportlab
